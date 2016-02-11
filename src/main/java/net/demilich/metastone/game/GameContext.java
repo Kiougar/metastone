@@ -138,6 +138,7 @@ public class GameContext implements Cloneable, IDisposable {
 				return card;
 			}
 		}
+		logger.error("Could not find cardId {} in card collection {}", cardId, cardCollection.toList());
 		return null;
 	}
 
@@ -329,6 +330,26 @@ public class GameContext implements Cloneable, IDisposable {
 		}
 		endGame();
 
+	}
+
+	public void startTurn() {
+		this.startTurn(activePlayer);
+	}
+
+	public boolean playAction(GameAction action) {
+		if (++actionsThisTurn > 99) {
+			logger.warn("Turn has been forcefully ended after {} actions", actionsThisTurn);
+			endTurn();
+			return false;
+		}
+
+		if (action == null) {
+			throw new RuntimeException("playAction selected NULL action while "
+					+ getValidActions().size() + " actions were available");
+		}
+		performAction(activePlayer, action);
+
+		return action.getActionType() != ActionType.END_TURN;
 	}
 
 	public boolean playTurn() {

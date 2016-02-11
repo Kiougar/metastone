@@ -25,7 +25,7 @@ public class MonteCarloTreeSearch extends Behaviour {
 
 	@Override
 	public List<Card> mulligan(GameContext context, Player player, List<Card> cards) {
-		List<Card> discardedCards = new ArrayList<Card>();
+		List<Card> discardedCards = new ArrayList<>();
 		for (Card card : cards) {
 			if (card.getBaseManaCost() >= 4) {
 				discardedCards.add(card);
@@ -40,7 +40,7 @@ public class MonteCarloTreeSearch extends Behaviour {
 			// logger.info("MCTS selected best action {}", validActions.get(0));
 			return validActions.get(0);
 		}
-		Node root = new Node(null, player.getId());
+		INode root = new INode(null, player.getId());
 		root.initState(context, validActions);
 		UctPolicy treePolicy = new UctPolicy();
 		for (int i = 0; i < ITERATIONS; i++) {

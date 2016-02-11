@@ -33,4 +33,9 @@
 		<appender-ref ref="LOGFILE" />
 	</root>
 
+	<!--<root level="DEBUG">
+		<appender-ref ref="STDOUT"/>
+		<appender-ref ref="LOGFILE" />
+	</root>-->
+
 </configuration>

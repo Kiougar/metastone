@@ -44,6 +44,16 @@ task copyDecks << {
    	}
 }
 
+task runJar(type: Jar) {
+	manifest {
+		attributes 'Implementation-Title': 'MetaStone',
+				'Implementation-Version': version,
+				'Main-Class': 'net.demilich.metastone.game.behaviour.mcts.MyAgentMain'
+	}
+	from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+	with jar
+}
+
 assemble.dependsOn copyDecks
 assemble.dependsOn copyCards
 assemble.doLast {

@@ -1,146 +1,112 @@
 package net.demilich.metastone.game.behaviour.mcts;
 
-import java.util.ArrayList;
+import net.demilich.metastone.game.GameContext;
+import net.demilich.metastone.game.actions.GameAction;
+import net.demilich.metastone.game.behaviour.mcts.utils.ListUtils;
+
 import java.util.LinkedList;
 import java.util.List;
 
-import net.demilich.metastone.game.GameContext;
-import net.demilich.metastone.game.Player;
-import net.demilich.metastone.game.actions.GameAction;
-import net.demilich.metastone.game.behaviour.PlayRandomBehaviour;
-
 class Node {
 
-	private GameContext state;
-	private List<GameAction> validTransitions;
-	private final List<Node> children = new LinkedList<>();
-	private final GameAction incomingAction;
-	private int visits;
-	private int score;
-	private final int player;
+    //private final static Logger logger = LoggerFactory.getLogger(Node.class);
 
-	public Node(GameAction incomingAction, int player) {
-		this.incomingAction = incomingAction;
-		this.player = player;
-	}
+    private final GameAction action;
+    private final Node parent;
+    private final int playerId;
+    private List<Node> childNodes = new LinkedList<>();
+    private int wins = 0;
+    private int visits = 0;
+    private List<GameAction> untriedMoves;
+    private GameContext state;
+    //private ITreePolicy policy;
 
-	private boolean canFurtherExpanded() {
-		return !validTransitions.isEmpty();
-	}
+    private Node(GameAction action, Node parent, GameContext state) {
+        this.action = action;
+        this.parent = parent;
+        this.state = state;
+        this.playerId = state.getActivePlayerId();
+        this.untriedMoves = state.getValidActions();
+    }
 
-	private Node expand() {
-		GameAction action = validTransitions.remove(0);
-		GameContext newState = state.clone();
+    public Node(GameContext state, List<GameAction> validActions) {
+        this.action = null;
+        this.parent = null;
+        this.state = state;
+        this.playerId = state.getActivePlayerId();
+        this.untriedMoves = validActions;
+    }
 
-		try {
-			newState.getLogic().performGameAction(newState.getActivePlayer().getId(), action);
-		} catch (Exception e) {
-			System.err.println("Exception on action: " + action + " state decided: " + state.gameDecided());
-			e.printStackTrace();
-			throw e;
-		}
+    public Node UTCSelectChild() {
+        Node bestChild = null;
+        double ucb = Double.MIN_VALUE;
+        for (Node node : this.childNodes) {
+            double tmp = this.UCB1(node);
+            if (tmp > ucb || bestChild == null) {
+                bestChild = node;
+                ucb = tmp;
+            }
+        }
+        return bestChild;
+    }
 
-		Node child = new Node(action, getPlayer());
-		child.initState(newState, newState.getValidActions());
-		children.add(child);
-		return child;
-	}
+    public Node AddChild(GameAction a, GameContext s) {
+        Node node = new Node(a, this, s);
+        this.untriedMoves.remove(a);
+        this.childNodes.add(node);
+        return node;
+    }
 
-	public GameAction getBestAction() {
-		GameAction best = null;
-		int bestScore = Integer.MIN_VALUE;
-		for (Node node : children) {
-			if (node.getScore() > bestScore) {
-				best = node.incomingAction;
-				bestScore = node.getScore();
-			}
-		}
-		return best;
-	}
+    public void Update(int result) {
+        this.visits++;
+        this.wins += result;
+    }
 
-	public List<Node> getChildren() {
-		return children;
-	}
+    private double UCB1(Node c) {
+        return (double) c.wins/c.visits + Math.sqrt(2*Math.log(this.visits))/c.visits;
+    }
 
-	public int getPlayer() {
-		return player;
-	}
+    public boolean isFullyExpanded() {
+        return this.untriedMoves.size() == 0;
+    }
 
-	public int getScore() {
-		return score;
-	}
+    public boolean isTerminal() {
+        return this.childNodes.size() == 0;
+    }
 
-	public GameContext getState() {
-		return state;
-	}
+    public GameAction getRandomUntriedAction() {
+        return ListUtils.getRandomElement(this.untriedMoves);
+    }
 
-	public int getVisits() {
-		return visits;
-	}
+    public GameAction getAction() {
+        return action;
+    }
 
-	public void initState(GameContext state, List<GameAction> validActions) {
-		this.state = state.clone();
-		this.validTransitions = new ArrayList<GameAction>(validActions);
-	}
+    public Node getParent() {
+        return parent;
+    }
 
-	public boolean isExpandable() {
-		if (validTransitions.isEmpty()) {
-			return false;
-		}
-		if (state.gameDecided()) {
-			return false;
-		}
-		return getChildren().size() < validTransitions.size();
-	}
+    public int getPlayerId() {
+        return playerId;
+    }
 
-	public boolean isLeaf() {
-		return children == null || children.isEmpty();
-	}
+    /**
+     * Select the action that was most visited
+     * @return The most visited action
+     */
+    public GameAction getBestChildAction() {
+        GameAction best = null;
+        int visits = -1;
+        for (Node c: this.childNodes) {
+            if (c.visits > visits) {
+                visits = c.visits;
+                best = c.action;
+            }
+        }
+        return best;
+    }
 
-	private boolean isTerminal() {
-		return state.gameDecided();
-	}
-
-	public void process(ITreePolicy treePolicy) {
-		List<Node> visited = new LinkedList<Node>();
-		Node current = this;
-		visited.add(this);
-		while (!current.isTerminal()) {
-			if (current.canFurtherExpanded()) {
-				current = current.expand();
-				visited.add(current);
-				break;
-			} else {
-				current = treePolicy.select(current);
-				visited.add(current);
-			}
-		}
-
-		int value = rollOut(current);
-		for (Node node : visited) {
-			node.updateStats(value);
-		}
-	}
-
-	public int rollOut(Node node) {
-		if (node.getState().gameDecided()) {
-			GameContext state = node.getState();
-			return state.getWinningPlayerId() == getPlayer() ? 1 : 0;
-		}
-
-		GameContext simulation = node.getState().clone();
-		for (Player player : simulation.getPlayers()) {
-			player.setBehaviour(new PlayRandomBehaviour());
-		}
-
-		simulation.playTurn();
-
-		return simulation.getWinningPlayerId() == getPlayer() ? 1 : 0;
-	}
-
-	private void updateStats(int value) {
-		visits++;
-		score += value;
-	}
-
+    public GameContext getState() {
+        return state.clone();
+    }
 }
