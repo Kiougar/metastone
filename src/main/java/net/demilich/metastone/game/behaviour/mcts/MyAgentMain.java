@@ -4,7 +4,10 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import net.demilich.metastone.game.GameContext;
 import net.demilich.metastone.game.Player;
+import net.demilich.metastone.game.behaviour.Behaviour;
 import net.demilich.metastone.game.behaviour.PlayRandomBehaviour;
+import net.demilich.metastone.game.behaviour.threat.FeatureVector;
+import net.demilich.metastone.game.behaviour.threat.GameStateValueBehaviour;
 import net.demilich.metastone.game.cards.Card;
 import net.demilich.metastone.game.cards.CardCatalogue;
 import net.demilich.metastone.game.cards.CardProxy;
@@ -103,8 +106,8 @@ public class MyAgentMain {
     }
 
     public static void main(String[] args) {
-        int numberOfGames = 2;
-        int iterations = 100;
+        int numberOfGames = 5;
+        int iterations = 400;
         if (args.length >= 1) {
             if (args[0].equals("help") || args[0].equals("-h") || args[0].equals("--help")) {
                 usage();
@@ -125,7 +128,8 @@ public class MyAgentMain {
         PlayerConfig playerConfig1 = new PlayerConfig(deck, new HearthAgent(iterations));
         playerConfig1.setName("Player 1");
         playerConfig1.setHeroCard(getHeroCardForClass(HeroClass.PRIEST));
-        PlayerConfig playerConfig2 = new PlayerConfig(deck, new PlayRandomBehaviour());
+        Behaviour behaviour = new GameStateValueBehaviour(FeatureVector.getFittest(), "(untrained)");
+        PlayerConfig playerConfig2 = new PlayerConfig(deck, behaviour);
         playerConfig2.setName("Player 2");
         playerConfig2.setHeroCard(getHeroCardForClass(HeroClass.PRIEST));
 
@@ -181,7 +185,7 @@ public class MyAgentMain {
     }
 
     private static void usage() {
-        System.out.println("Usage: java -jar metastone.jar [numberOfGames] [iterations]");
+        System.out.println("Usage: java -jar hearthagent.jar [numberOfGames] [iterations]");
         System.exit(0);
     }
 }
